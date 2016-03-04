@@ -10,6 +10,8 @@ var canvas, stage, timeInput;
 var hourHand, minuteHand, digital, clock, prevMinHandAngle = 0, prevHourHandAngle = 0;
 var minuteInc = 5;
 var time = {hour: 0, minute: 0};
+var mousePos = {x: 0, y: 0}, prevMousePos = {x: 0, y: 0};
+var isLastActionUserInput = false;
 
 // as long as window has focus
 window.addEventListener('keypress', function (e) {
@@ -18,6 +20,7 @@ window.addEventListener('keypress', function (e) {
   } else if (e.charCode == 83 || e.charCode == 115 || e.keyCode == 40) {
     setClocks(updateTime(-minuteInc));
   }
+  isLastActionUserInput = false;
 });
 
 function updateTime(inc) {
@@ -41,7 +44,7 @@ function updateTime(inc) {
 function getDigitalTime() {
   var matches = /(\d{2}):(\d{2})/.exec(timeInput.value);
   if (!matches)
-    return {hour: 0, minute: 0};
+    return null;
 
   return {
     hour  : parseInt(matches[1]) || 0,
@@ -57,8 +60,8 @@ function init() {
   stage.mouseEventsEnabled = true;
 
   timeInput.addEventListener('input', function () {
-    time = getDigitalTime();
-    setClocks(time, 'analog');
+    time = getDigitalTime() || time;
+    isLastActionUserInput = true;
   });
 
   // grab canvas width and height for later calculations:
@@ -100,11 +103,13 @@ function onAssetsLoaded() {
   minuteHand.rotation = 0;
 
   minuteHand.on('pressmove', function (e) {
-    var angle = Math.atan2(clock.y - e.stageY, e.stageX - clock.x) * 180 / Math.PI;
-    console.log('angle: ' + angle);
-    minuteHand.rotation = 90 - angle;
-    console.log('rotation: ' + minuteHand.rotation);
-    getTimeFromAnalog(minuteHand.rotation, hourHand.rotation, prevMinHandAngle, prevHourHandAngle);
+    mousePos.x = e.stageX;
+    mousePos.y = e.stageY;
+    if (prevMousePos.x != 0 && prevMousePos.y != 0)
+      calculateMouseMinute(mousePos, {x: clock.x, y: clock.y});
+    prevMousePos.x = mousePos.x;
+    prevMousePos.y = mousePos.y;
+    isLastActionUserInput = false;
   });
 
   hourHand = new createjs.Bitmap('assets/hour_hand.png');
@@ -115,9 +120,13 @@ function onAssetsLoaded() {
   hourHand.y = clock.y;
 
   hourHand.on('pressmove', function (e) {
-    var angle = Math.atan2(clock.y - e.stageY, e.stageX - clock.x) * 180 / Math.PI;
-    hourHand.rotation = 90 - angle;
-    getTimeFromAnalog(minuteHand.rotation, hourHand.rotation, prevMinHandAngle, prevHourHandAngle);
+    mousePos.x = e.stageX;
+    mousePos.y = e.stageY;
+    if (prevMousePos.x != 0 && prevMousePos.y != 0)
+      calculateMouseHour(mousePos, {x: clock.x, y: clock.y});
+    prevMousePos.x = mousePos.x;
+    prevMousePos.y = mousePos.y;
+    isLastActionUserInput = false;
   });
 
   createjs.Ticker.timingMode = createjs.Ticker.RAF;
@@ -131,26 +140,37 @@ function pad(n, width, z) {
   return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
 }
 
-function getTimeFromAnalog(minuteRotation, hourRotation, prevMinuteRotation, prevHourRotation) {
-  var nRotation = (minuteRotation + 360) % 360;
-  var npRotation = (prevMinuteRotation + 360) % 360;
-  var dRotation = (nRotation - npRotation + 360) % 360;
+function tanToRotation(angle) {
+  angle *= -1;
+  if (angle > -90 && angle < 180)
+    return angle + 90;
 
-  time = {
-    hour: time.hour,//((hourRotation + 360) % 360) / 30,
-    minute: ((minuteRotation + 360) % 360) / 6};
+  if (angle >= -180 && angle <= -90)
+    return angle + 450;
 
-  if (npRotation + dRotation > 360) {
-    time.hour += 1;
+  return 0;
+}
+
+function calculateMouseMinute(mousePos, center) {
+  var newAngle = tanToRotation(Math.atan2(center.y - mousePos.y, mousePos.x - center.x) * 180 / Math.PI);
+
+  var prevMinute = time.minute;
+  time.minute = Math.floor(newAngle / 6);
+
+  if (prevMinute > 50 && time.minute < 10) {
+    time.hour = (time.hour + 13) % 12;
   }
-  if (npRotation + dRotation < 0) {
-    time.hour -= 1;
+
+  if (prevMinute < 10 && time.minute > 50) {
+    time.hour = (time.hour + 11) % 12;
   }
+}
 
-  console.log('angle from rotation: ' + (minuteRotation + 360) % 360);
-  console.log('time: ' + time.hour + ' ' + time.minute);
+function calculateMouseHour(mousePos, center) {
+  var newAngle = tanToRotation(Math.atan2(center.y - mousePos.y, mousePos.x - center.x) * 180 / Math.PI);
 
-  setClocks(time);
+  time.hour = Math.floor(newAngle / 30);
+  time.minute = (newAngle % 30) * 2;
 }
 
 /**
@@ -163,19 +183,19 @@ function setClocks(time, clockType) {
   time.minute %= 60;
 
   if (!clockType || clockType == 'analog') {
-    minuteHand.rotation = time.minute / 60 * 360;
-    hourHand.rotation = time.hour / 12 * 360 + time.minute / 60 / 12 * 360;
+    // minute / 60 * 360
+    minuteHand.rotation = time.minute * 6;
+
+    // hour/12 * 360 + minute/60 / 12 * 360
+    hourHand.rotation = time.hour * 30 + time.minute / 2;
   }
-  console.log('minute hand rotation: ' + minuteHand.rotation);
 
-  prevMinHandAngle = minuteHand.rotation;
-  prevHourHandAngle = hourHand.rotation;
-
-  if (!clockType || clockType == 'digital') {
+  if ((!clockType || clockType == 'digital') && !isLastActionUserInput) {
     timeInput.value = pad(Math.floor(time.hour), 2) + ':' + pad(Math.floor(time.minute), 2);
   }
 }
 
 function tick(event) {
+  setClocks(time);
   stage.update(event);
 }
