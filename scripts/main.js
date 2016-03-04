@@ -6,37 +6,39 @@ var manifest = [
   {src: "long_minute_hand.png", id: "minuteHand", w: 30, h: 167}
 ];
 
-var canvas, stage, timeInput, hourHand, minuteHand, digital, clock, prevMinHandAngle = 0, prevHourHandAngle = 0;
-
+var canvas, stage, timeInput;
+var hourHand, minuteHand, digital, clock, prevMinHandAngle = 0, prevHourHandAngle = 0;
 var minuteInc = 5;
+var time = {hour: 0, minute: 0};
+
 // as long as window has focus
 window.addEventListener('keypress', function (e) {
   if (e.charCode == 87 || e.charCode == 119 || e.keyCode == 38) {
-    var curTime = getCurrentTime();
-    setTime(updateTime(curTime, minuteInc));
+    setClocks(updateTime(minuteInc));
   } else if (e.charCode == 83 || e.charCode == 115 || e.keyCode == 40) {
-    var curTime = getCurrentTime();
-    setTime(updateTime(curTime, -minuteInc));
+    setClocks(updateTime(-minuteInc));
   }
 });
 
-function updateTime(time, inc) {
+function updateTime(inc) {
   if (time.minute + inc >= 60) {
     if (time.hour + 1 > 23)
-      return {hour: 0, minute: (time.minute + inc) % 60};
+      time = {hour: 0, minute: (time.minute + inc) % 60};
     else
-      return {hour: time.hour + 1, minute: (time.minute + inc) % 60};
+      time = {hour: time.hour + 1, minute: (time.minute + inc) % 60};
   } else if (time.minute + inc < 0) {
     if (time.hour - 1 < 0)
-      return {hour: 23, minute: 60 + (time.minute + inc)};
+      time = {hour: 23, minute: 60 + (time.minute + inc)};
     else
-      return {hour: time.hour - 1, minute: 60 + (time.minute + inc)};
+      time = {hour: time.hour - 1, minute: 60 + (time.minute + inc)};
   } else {
-    return {hour: time.hour, minute: time.minute + inc};
+    time = {hour: time.hour, minute: time.minute + inc};
   }
+
+  return time;
 }
 
-function getCurrentTime() {
+function getDigitalTime() {
   var matches = /(\d{2}):(\d{2})/.exec(timeInput.value);
   if (!matches)
     return {hour: 0, minute: 0};
@@ -55,8 +57,8 @@ function init() {
   stage.mouseEventsEnabled = true;
 
   timeInput.addEventListener('input', function () {
-    var curTime = getCurrentTime();
-    setTime(curTime, 'analog');
+    time = getDigitalTime();
+    setClocks(time, 'analog');
   });
 
   // grab canvas width and height for later calculations:
@@ -122,22 +124,33 @@ function onAssetsLoaded() {
   createjs.Ticker.addEventListener("tick", tick);
 }
 
+//http://stackoverflow.com/questions/10073699/pad-a-number-with-leading-zeros-in-javascript
+function pad(n, width, z) {
+  z = z || '0';
+  n = n + '';
+  return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+}
+
 function getTimeFromAnalog(minuteRotation, hourRotation, prevMinuteRotation, prevHourRotation) {
+  var nRotation = (minuteRotation + 360) % 360;
+  var npRotation = (prevMinuteRotation + 360) % 360;
+  var dRotation = (nRotation - npRotation + 360) % 360;
 
-  console.log('angle from rotation: ' + (-minuteRotation));
-  var time = {hour:0, minute:0};
-  time.minute = (-minuteRotation)
+  time = {
+    hour: time.hour,//((hourRotation + 360) % 360) / 30,
+    minute: ((minuteRotation + 360) % 360) / 6};
 
-  if (minuteRotation !== prevMinuteRotation) {
-    console.log('minute hand moved from ' + prevMinuteRotation + ' to ' + minuteRotation);
-    if (minuteRotation > 0 && prevMinuteRotation < 0) {
-
-    }
+  if (npRotation + dRotation > 360) {
+    time.hour += 1;
+  }
+  if (npRotation + dRotation < 0) {
+    time.hour -= 1;
   }
 
-  if (hourRotation !== prevHourRotation) {
-    console.log('hour hand didnt move');
-  }
+  console.log('angle from rotation: ' + (minuteRotation + 360) % 360);
+  console.log('time: ' + time.hour + ' ' + time.minute);
+
+  setClocks(time);
 }
 
 /**
@@ -145,7 +158,7 @@ function getTimeFromAnalog(minuteRotation, hourRotation, prevMinuteRotation, pre
  * @param time - {hour:int, minute:int}
  * @param clockType - analog | digital | null
  */
-function setTime(time, clockType) {
+function setClocks(time, clockType) {
   time.hour %= 24;
   time.minute %= 60;
 
@@ -153,31 +166,16 @@ function setTime(time, clockType) {
     minuteHand.rotation = time.minute / 60 * 360;
     hourHand.rotation = time.hour / 12 * 360 + time.minute / 60 / 12 * 360;
   }
+  console.log('minute hand rotation: ' + minuteHand.rotation);
 
   prevMinHandAngle = minuteHand.rotation;
   prevHourHandAngle = hourHand.rotation;
 
   if (!clockType || clockType == 'digital') {
-    timeInput.value = ('00' + time.hour).slice(-2) + ':' + ('00' + time.minute).slice(-2);
+    timeInput.value = pad(Math.floor(time.hour), 2) + ':' + pad(Math.floor(time.minute), 2);
   }
 }
 
 function tick(event) {
-  //var deltaS = event.delta / 1000;
-  //var position = grant.x + 150 * deltaS;
-  //
-  //var grantW = grant.getBounds().width * grant.scaleX;
-  //grant.x = (position >= w + grantW) ? -grantW : position;
-  //
-  //ground.x = (ground.x - deltaS * 150) % ground.tileW;
-  //hill.x = (hill.x - deltaS * 30);
-  //if (hill.x + hill.image.width * hill.scaleX <= 0) {
-  //  hill.x = w;
-  //}
-  //hill2.x = (hill2.x - deltaS * 45);
-  //if (hill2.x + hill2.image.width * hill2.scaleX <= 0) {
-  //  hill2.x = w;
-  //}
-
   stage.update(event);
 }
