@@ -31,16 +31,18 @@
       changeTimeEvent(self.time);
       self.setTime();
     });
+
+    this.setTime();
   }
 
   Clock.prototype.setTime = function (time) {
-    this.time = time || this.time;
-    console.log('setTime: ' + this.time.hour + ':' + this.time.minute);
+    time = time || this.time;
+    //console.log('setTime: ' + this.time.hour + ':' + this.time.minute);
 
     // minute / 60 * 360
-    this.minute.rotation = this.time.minute * 6;
+    this.minute.rotation = time.minute * 6;
     // hour/12 * 360 + minute/60 / 12 * 360
-    this.hour.rotation = this.time.hour * 30 + this.time.minute / 2;
+    this.hour.rotation = time.hour * 30 + time.minute / 2;
   };
 
   /**

@@ -8,14 +8,16 @@
 
     this.input = document.getElementById('timeInput');
     this.input.addEventListener('input', function () {
-      time = getDigitalTime(self.input.value) || time;
-      changeTimeEvent(time);
+      self.time = getDigitalTime(self.input.value) || time;
+      changeTimeEvent(self.time);
     });
+
+    this.setTime();
   }
 
   DigitalClock.prototype.setTime = function (time) {
-    //if (!this.isLastActionUserInput)
-      this.input.value = pad(Math.floor(time.hour), 2) + ':' + pad(Math.floor(time.minute), 2);
+    time = time || this.time;
+    this.input.value = pad(Math.floor(time.hour), 2) + ':' + pad(Math.floor(time.minute), 2);
   };
 
   function getDigitalTime(input) {
