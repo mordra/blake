@@ -13,21 +13,8 @@ Down/s - Decrement by 5 minutes
 Spacebar - Stop/start time (How time works: Every second of earth time = a minute of game time)
 Drag hands - Change time
 
-Notes:
-- This was my first project using CreateJS and Canvas.
-- As such, alot of createjs calls are probably pulled right out of the tuts so I hope I've 
-  demonstrated enthusiasm and ability to learn if not mastery of the framework or correct createjs patterns.
-- Most fun tech test I've ever taken! Reminds me of 3D matrix transforms in adv graphics where you can chain transforms for different perspectives.
-- Look, no Globals! Ok.. there are two, Clock and DigitalClock
-- This is a 12 hour clock, but it is forgiving about invalid values and tries to accomodate by using modulous.
-
-Credits:
-- Wife: Helped me figure out 'tanToRotation', is this cheating? Got stuck on it...
-
-
-
 Enjoy!
---by Joseph Ni
+
 
 
 
